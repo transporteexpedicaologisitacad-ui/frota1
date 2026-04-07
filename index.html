@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disponibilidade de Frota</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #25D366;
+    --green-dark: #128C7E;
+    --green-light: #DCF8C6;
+    --bg: #D3D3D3;
+    --surface: #111916;
+    --surface2: #182218;
+    --border: #1f3028;
+    --text: #e8f5ec;
+    --muted: #6b8c75;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+    background-image: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(37,211,102,0.13) 0%, transparent 70%);
+  }
+
+  /* ── Header ── */
+  .header { text-align: center; margin-bottom: 28px; padding-top: 8px; }
+  .wa-icon {
+    width: 56px; height: 56px; background: var(--green);
+    border-radius: 18px; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px; box-shadow: 0 0 32px rgba(37,211,102,0.4);
+  }
+  .wa-icon svg { width: 32px; height: 32px; fill: white; }
+  h1 { font-family: 'Syne', sans-serif; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+  h1 span { color: var(--green); }
+  .subtitle { color: var(--muted); font-size: 0.83rem; margin-top: 6px; font-weight: 300; }
+
+  /* ── Card ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 14px; }
+  .card-title {
+    font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.13em; text-transform: uppercase; color: var(--green);
+    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .field { margin-bottom: 13px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 0.77rem; font-weight: 500; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.02em; }
+  label .req { color: var(--green); margin-left: 2px; }
+
+  /* ── Inputs ── */
+  input[type="text"], input[type="date"], input[type="number"], select, textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s; -webkit-appearance: none;
+  }
+  input[type="date"] { color-scheme: dark; }
+  input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7) sepia(1) saturate(3) hue-rotate(100deg); }
+  input:focus, select:focus, textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(37,211,102,0.12); }
+  select option { background: #182218; }
+  textarea { resize: vertical; min-height: 70px; }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── Input com sufixo ── */
+  .input-suffix-wrap { position: relative; }
+  .input-suffix-wrap input { padding-right: 48px; }
+  .input-suffix {
+    position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: 0.78rem; font-weight: 600; pointer-events: none;
+    font-family: 'Syne', sans-serif;
+  }
+
+  /* ── Date badge ── */
+  .date-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.25);
+    border-radius: 8px; padding: 6px 12px; font-size: 0.78rem; color: var(--green);
+    margin-top: 8px; font-family: 'Syne', sans-serif; font-weight: 600;
+  }
+
+  /* ── Multi-select cidades ── */
+  .city-select-wrapper { position: relative; }
+  .city-trigger {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    transition: border-color 0.2s; user-select: none;
+  }
+  .city-trigger.open { border-color: var(--green); box-shadow: 0 0 0 3px rgba(37,211,102,0.12); }
+  .city-trigger .arrow { width: 16px; height: 16px; flex-shrink: 0; transition: transform 0.25s; color: var(--muted); }
+  .city-trigger.open .arrow { transform: rotate(180deg); }
+  .city-trigger .placeholder { color: var(--muted); font-size: 0.88rem; }
+  .city-trigger .sel-count { background: var(--green); color: white; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; font-weight: 700; font-family: 'Syne', sans-serif; }
+  .city-dropdown {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    z-index: 50; box-shadow: 0 12px 40px rgba(0,0,0,0.5); max-height: 300px;
+    overflow: hidden; flex-direction: column;
+  }
+  .city-dropdown.open { display: flex; }
+  .city-search { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .city-search input { padding: 8px 12px; font-size: 0.85rem; border-radius: 8px; }
+  .city-list { overflow-y: auto; flex: 1; padding: 6px; }
+  .city-list::-webkit-scrollbar { width: 4px; }
+  .city-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .city-group-label { padding: 8px 10px 4px; font-size: 0.67rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-family: 'Syne', sans-serif; }
+  .city-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 0.86rem; transition: background 0.15s; }
+  .city-item:hover { background: var(--surface2); }
+  .city-item.checked { background: rgba(37,211,102,0.08); color: var(--green); }
+  .city-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--green); flex-shrink: 0; cursor: pointer; }
+  .city-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .city-tag { display: flex; align-items: center; gap: 5px; background: rgba(37,211,102,0.12); border: 1px solid rgba(37,211,102,0.3); border-radius: 20px; padding: 4px 10px; font-size: 0.74rem; color: var(--green); font-weight: 500; }
+  .city-tag button { background: none; border: none; color: var(--green); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; opacity: 0.7; }
+  .city-tag button:hover { opacity: 1; }
+
+  /* ── Pendência ── */
+  .toggle-field { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: border-color 0.2s; }
+  .toggle-field:has(input:checked) { border-color: #ff6b35; box-shadow: 0 0 0 3px rgba(255,107,53,0.1); }
+  .toggle-field input[type="checkbox"] { width: 20px; height: 20px; accent-color: #ff6b35; cursor: pointer; flex-shrink: 0; }
+  .toggle-label { font-size: 0.88rem; font-weight: 500; flex: 1; }
+  .pending-fields { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); animation: fadeIn 0.25s ease; }
+  .pending-fields.show { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Preview ── */
+  .preview-card { background: #0b1f14; border: 1px solid #1a3d26; border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+  .preview-header { font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--green); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .preview-header span:last-child { color: var(--muted); font-size: 0.68rem; text-transform: none; letter-spacing: 0; font-family: 'DM Sans'; }
+  .preview-msg { background: var(--green-light); color: #1a1a1a; border-radius: 12px 12px 4px 12px; padding: 14px 16px; font-size: 0.84rem; line-height: 1.65; white-space: pre-wrap; word-break: break-word; font-family: 'DM Sans', sans-serif; box-shadow: 0 2px 12px rgba(0,0,0,0.3); min-height: 60px; }
+
+  /* ── Botão principal ── */
+  .btn-enviar {
+    width: 100%; padding: 17px; border-radius: 14px; border: none;
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    color: white; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1rem;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 6px 24px rgba(37,211,102,0.4); letter-spacing: 0.02em;
+    transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s; margin-bottom: 32px;
+  }
+  .btn-enviar:active { transform: scale(0.98); }
+  .btn-enviar:hover { box-shadow: 0 8px 32px rgba(37,211,102,0.55); }
+  .btn-enviar:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-badge { background: rgba(255,255,255,0.2); border-radius: 20px; padding: 2px 9px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.04em; }
+
+  /* ── Spinner ── */
+  .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  .spinner.active { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast ── */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--green); color: white; padding: 11px 20px; border-radius: 50px; font-size: 0.84rem; font-weight: 600; font-family: 'Syne', sans-serif; z-index: 999; transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="wa-icon">
+    <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+  </div>
+  <h1>Frota <span>disponível</span></h1>
+  <p class="subtitle">Preencha e envie direto no WhatsApp</p>
+</div>
+
+<!-- DATA -->
+<div class="card">
+  <div class="card-title">Data de disponibilidade</div>
+  <div class="field">
+    <label>Selecione a data <span class="req">*</span></label>
+    <input type="date" id="dataDisp" onchange="onDateChange()">
+    <div class="date-badge" id="dataBadge">— selecione uma data acima —</div>
+  </div>
+</div>
+
+<!-- DADOS DO MOTORISTA -->
+<div class="card">
+  <div class="card-title">Dados do motorista</div>
+  <div class="field">
+    <label>Nome <span class="req">*</span></label>
+    <input type="text" id="nome" placeholder="Ex: RANIEL" oninput="updatePreview()" autocomplete="name">
+  </div>
+  <div class="row-2">
+    <div class="field">
+      <label>Veículo <span class="req">*</span></label>
+      <select id="veiculo" onchange="updatePreview()">
+        <option value="">Selecione</option>
+        <option>FIORINO</option>
+        <option>KOMBI</option>
+        <option>VAN</option>
+        <option>SAVEIRO</option>
+        <option>MASTER</option>
+        <option>DUCATO</option>
+        <option>SPRINTER</option>
+        <option>OUTRO</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Placa <span class="req">*</span></label>
+      <input type="text" id="placa" placeholder="AAA0000" oninput="this.value=this.value.toUpperCase();updatePreview()" maxlength="8">
+    </div>
+  </div>
+</div>
+
+<!-- CAPACIDADE — campos livres -->
+<div class="card">
+  <div class="card-title">Capacidade</div>
+  <div class="row-2">
+    <div class="field">
+      <label>Capacidade de carga <span class="req">*</span></label>
+      <div class="input-suffix-wrap">
+        <input type="text" id="carga" placeholder="Ex: 500" oninput="updatePreview()" inputmode="numeric">
+        <span class="input-suffix">KG</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Capacidade de pallets <span class="req">*</span></label>
+      <input type="text" id="pallets" placeholder="Ex: 2" oninput="updatePreview()" inputmode="decimal">
+    </div>
+  </div>
+</div>
+
+<!-- ROTA -->
+<div class="card">
+  <div class="card-title">Rota de preferência</div>
+  <div class="field">
+    <label>Cidades <span class="req">*</span> <span style="color:var(--muted);font-size:0.72rem;">(selecione uma ou mais)</span></label>
+    <div class="city-select-wrapper">
+      <div class="city-trigger" id="cityTrigger" onclick="toggleCityDropdown()" tabindex="0">
+        <span id="cityPlaceholderSpan" class="placeholder">Selecione as cidades...</span>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="city-dropdown" id="cityDropdown">
+        <div class="city-search">
+          <input type="text" id="citySearchInput" placeholder="🔍 Buscar cidade..." oninput="filterCities()" onclick="event.stopPropagation()">
+        </div>
+        <div class="city-list" id="cityListEl"></div>
+      </div>
+    </div>
+    <div class="city-tags" id="cityTags"></div>
+  </div>
+</div>
+
+<!-- PENDÊNCIAS -->
+<div class="card">
+  <div class="card-title">Pendências</div>
+  <label class="toggle-field">
+    <input type="checkbox" id="temPendencia" onchange="togglePendencia()">
+    <span class="toggle-label">Possuo pendências a informar</span>
+  </label>
+  <div class="pending-fields" id="pendingFields">
+    <div class="field" style="margin-top:12px;">
+      <label>Nome do cliente</label>
+      <input type="text" id="clientePendencia" placeholder="Ex: MARAJÓ" oninput="updatePreview()">
+    </div>
+    <div class="field">
+      <label>Qual é a pendência?</label>
+      <textarea id="qualPendencia" placeholder="Descreva a pendência..." oninput="updatePreview()"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW -->
+<div class="preview-card">
+  <div class="preview-header">
+    <span>Prévia da mensagem</span>
+    <span>como aparecerá no WhatsApp</span>
+  </div>
+  <div class="preview-msg" id="previewMsg">Preencha os campos acima para visualizar a mensagem...</div>
+</div>
+
+<!-- BOTÃO ÚNICO -->
+<button class="btn-enviar" id="btnEnviar" onclick="enviarDisponibilidade()">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+  <span id="btnLabel">ENVIAR DISPONIBILIDADE</span>
+  <span class="btn-badge" id="btnBadge">no Grupo</span>
+  <div class="spinner" id="btnSpinner"></div>
+</button>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIGURAÇÃO — edite aqui
+// ═══════════════════════════════════════
+var SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwozFjGRRE2I_A5jTq24Qn_CiY9y5B7dFTKF3W0_WQbVwZGz3L8tREPAp6GSYEEwuncFw/exec'; // Cole aqui a URL do seu Google Apps Script Web App
+var WA_GROUP   = ''; // Ex: '556198765432' (com DDI, sem +). Deixe '' para abrir sem destinatário fixo
+
+// ═══════════════════════════════════════
+// CIDADES — DF e Entorno
+// ═══════════════════════════════════════
+var CIDADES = {
+  'DF — Regiões Administrativas': [
+    'ASA NORTE','ASA SUL','LAGO SUL','LAGO NORTE','TAGUATINGA','CEILÂNDIA',
+    'SAMAMBAIA','SOBRADINHO','SOBRADINHO II','PLANALTINA','PARANOÁ',
+    'SÃO SEBASTIÃO','GAMA','BRAZLÂNDIA','SANTA MARIA','RECANTO DAS EMAS',
+    'RIACHO FUNDO','RIACHO FUNDO II','GUARÁ','CRUZEIRO','SUDOESTE',
+    'OCTOGONAL','VARJÃO','PARK WAY','NÚCLEO BANDEIRANTE','CANDANGOLÂNDIA',
+    'JARDIM BOTÂNICO','ITAPOÃ','SIA','VICENTE PIRES','FERCAL',
+    'SOL NASCENTE','PÔR DO SOL','ARNIQUEIRA','ÁGUAS CLARAS','ESTRUTURAL'
+  ],
+  'Entorno — Goiás': [
+    'LUZIÂNIA','FORMOSA','PLANALTINA-GO','VALPARAÍSO DE GOIÁS','NOVO GAMA',
+    'CIDADE OCIDENTAL','CRISTALINA','ALEXÂNIA','SANTO ANTÔNIO DO DESCOBERTO',
+    'ÁGUAS LINDAS DE GOIÁS','PADRE BERNARDO','COCALZINHO DE GOIÁS',
+    'PIRENÓPOLIS','ANÁPOLIS','GOIÂNIA','CORUMBÁ DE GOIÁS','ABADIÂNIA',
+    'MIMOSO DE GOIÁS','CABECEIRAS','VILA BOA','SILVÂNIA',
+    'SENADOR CANEDO','APARECIDA DE GOIÂNIA'
+  ],
+  'Entorno — Minas Gerais': [
+    'UNAÍ','BURITIS','PARACATU','JOÃO PINHEIRO','VAZANTE','RIACHINHO',
+    'CABECEIRA GRANDE','DOM BOSCO','ARINOS','NATALÂNDIA'
+  ]
+};
+
+// ═══════════════════════════════════════
+// MULTI-SELECT
+// ═══════════════════════════════════════
+var selectedCities = new Set();
+
+function buildCityList(filter) {
+  var listEl = document.getElementById('cityListEl');
+  listEl.innerHTML = '';
+  var f = (filter || '').toUpperCase().trim();
+  Object.keys(CIDADES).forEach(function(group) {
+    var cities = CIDADES[group];
+    var filtered = f ? cities.filter(function(c){ return c.indexOf(f) !== -1; }) : cities;
+    if (!filtered.length) return;
+    var gl = document.createElement('div');
+    gl.className = 'city-group-label';
+    gl.textContent = group;
+    listEl.appendChild(gl);
+    filtered.forEach(function(city) {
+      var item = document.createElement('div');
+      item.className = 'city-item' + (selectedCities.has(city) ? ' checked' : '');
+      item.innerHTML = '<input type="checkbox"' + (selectedCities.has(city) ? ' checked' : '') + '> ' + city;
+      item.addEventListener('click', function(){ toggleCity(city, item); });
+      listEl.appendChild(item);
+    });
+  });
+}
+
+function toggleCity(city, item) {
+  if (selectedCities.has(city)) {
+    selectedCities.delete(city);
+    item.classList.remove('checked');
+    item.querySelector('input').checked = false;
+  } else {
+    selectedCities.add(city);
+    item.classList.add('checked');
+    item.querySelector('input').checked = true;
+  }
+  updateCityTrigger();
+  updateCityTags();
+  updatePreview();
+}
+
+function updateCityTrigger() {
+  var ph = document.getElementById('cityPlaceholderSpan');
+  if (selectedCities.size === 0) {
+    ph.className = 'placeholder';
+    ph.textContent = 'Selecione as cidades...';
+  } else {
+    ph.className = 'sel-count';
+    ph.textContent = selectedCities.size + ' cidade' + (selectedCities.size > 1 ? 's' : '');
+  }
+}
+
+function updateCityTags() {
+  var tagsDiv = document.getElementById('cityTags');
+  tagsDiv.innerHTML = '';
+  selectedCities.forEach(function(city) {
+    var tag = document.createElement('div');
+    tag.className = 'city-tag';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '×';
+    (function(c){ btn.onclick = function(){ removeCity(c); }; })(city);
+    tag.appendChild(document.createTextNode(city));
+    tag.appendChild(btn);
+    tagsDiv.appendChild(tag);
+  });
+}
+
+function removeCity(city) {
+  selectedCities.delete(city);
+  buildCityList(document.getElementById('citySearchInput').value);
+  updateCityTrigger();
+  updateCityTags();
+  updatePreview();
+}
+
+function toggleCityDropdown() {
+  var dd = document.getElementById('cityDropdown');
+  var trigger = document.getElementById('cityTrigger');
+  var isOpen = dd.classList.contains('open');
+  dd.classList.toggle('open', !isOpen);
+  trigger.classList.toggle('open', !isOpen);
+  if (!isOpen) {
+    document.getElementById('citySearchInput').value = '';
+    buildCityList('');
+    setTimeout(function(){ document.getElementById('citySearchInput').focus(); }, 50);
+  }
+}
+
+function filterCities() {
+  buildCityList(document.getElementById('citySearchInput').value);
+}
+
+document.addEventListener('click', function(e) {
+  var wrapper = document.querySelector('.city-select-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) {
+    document.getElementById('cityDropdown').classList.remove('open');
+    document.getElementById('cityTrigger').classList.remove('open');
+  }
+});
+
+buildCityList('');
+
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+var DIAS_PT = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
+
+function onDateChange() {
+  var val = document.getElementById('dataDisp').value;
+  var badge = document.getElementById('dataBadge');
+  if (!val) {
+    badge.textContent = '— selecione uma data acima —';
+  } else {
+    var parts = val.split('-');
+    var y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+    var dt = new Date(y, m - 1, d);
+    var dia = DIAS_PT[dt.getDay()];
+    badge.textContent = '📅 ' + dia.charAt(0).toUpperCase() + dia.slice(1) + ', ' + d + '/' + m + '/' + y;
+  }
+  updatePreview();
+}
+
+function getDateLabel() {
+  var val = document.getElementById('dataDisp').value;
+  if (!val) return '___';
+  var parts = val.split('-');
+  var y = parseInt(parts[0]), m = parseInt(parts[1]), d = parseInt(parts[2]);
+  var dt = new Date(y, m - 1, d);
+  return DIAS_PT[dt.getDay()] + ' (' + d + '/' + m + '/' + y + ')';
+}
+
+// ═══════════════════════════════════════
+// PENDÊNCIA
+// ═══════════════════════════════════════
+function togglePendencia() {
+  var show = document.getElementById('temPendencia').checked;
+  document.getElementById('pendingFields').classList.toggle('show', show);
+  updatePreview();
+}
+
+// ═══════════════════════════════════════
+// MENSAGEM
+// ═══════════════════════════════════════
+function buildMessage() {
+  var nome    = (document.getElementById('nome').value || '').toUpperCase();
+  var vei     = document.getElementById('veiculo').value;
+  var placa   = document.getElementById('placa').value;
+  var carga   = document.getElementById('carga').value;
+  var pal     = document.getElementById('pallets').value;
+  var rotas   = Array.from(selectedCities).join(' | ');
+  var temP    = document.getElementById('temPendencia').checked;
+  var cliente = (document.getElementById('clientePendencia').value || '').toUpperCase();
+  var qualP   = document.getElementById('qualPendencia').value;
+  var dtLabel = getDateLabel();
+  var cargaFmt = carga ? carga + 'KG' : '___';
+
+  var msg = 'Olá Sres(as) Motoristas.\n';
+  msg += 'Por favor, enviar a disponibilidade da frota para *' + dtLabel + '.*\n\n';
+  msg += 'Informar:\n';
+  msg += '* Nome: '                + (nome    || '___') + '\n';
+  msg += '* Veículo: '             + (vei     || '___') + '\n';
+  msg += '* Placa: '               + (placa   || '___') + '\n';
+  msg += '* Capacidade de carga: ' + cargaFmt           + '\n';
+  msg += '* Capacidade de pallets: '+ (pal    || '___') + '\n';
+  msg += '* Rota de preferência: ' + (rotas   || '___') + '\n';
+  msg += '*Caso possua pendências, informar também:*\n';
+  msg += '* Nome do cliente: '     + (temP ? (cliente || '___') : '—') + '\n';
+  msg += '* Qual é a pendência: '  + (temP ? (qualP   || '___') : '—') + '\n\n';
+  msg += '*Solicito que enviem até às 18h.*\n';
+  msg += 'Após esse horário, o grupo será fechado e não aceitaremos mais disponibilidades.';
+  return msg;
+}
+
+function updatePreview() {
+  document.getElementById('previewMsg').textContent = buildMessage();
+}
+updatePreview();
+
+// ═══════════════════════════════════════
+// VALIDAÇÃO
+// ═══════════════════════════════════════
+function validate() {
+  if (!document.getElementById('dataDisp').value) {
+    showToast('⚠️ Informe a data de disponibilidade', '#e74c3c'); return false;
+  }
+  var required = [
+    {id:'nome',    label:'nome'},
+    {id:'veiculo', label:'veículo'},
+    {id:'placa',   label:'placa'},
+    {id:'carga',   label:'capacidade de carga'},
+    {id:'pallets', label:'capacidade de pallets'}
+  ];
+  for (var i = 0; i < required.length; i++) {
+    if (!document.getElementById(required[i].id).value.trim()) {
+      showToast('⚠️ Informe o campo: ' + required[i].label, '#e74c3c');
+      document.getElementById(required[i].id).focus();
+      return false;
+    }
+  }
+  if (selectedCities.size === 0) {
+    showToast('⚠️ Selecione ao menos uma rota', '#e74c3c'); return false;
+  }
+  return true;
+}
+
+// ═══════════════════════════════════════
+// ENVIAR — WhatsApp + Sheets simultâneo
+// ═══════════════════════════════════════
+async function enviarDisponibilidade() {
+  if (!validate()) return;
+
+  var btn     = document.getElementById('btnEnviar');
+  var label   = document.getElementById('btnLabel');
+  var badge   = document.getElementById('btnBadge');
+  var spinner = document.getElementById('btnSpinner');
+
+  btn.disabled = true;
+  label.textContent = 'ENVIANDO...';
+  badge.style.display = 'none';
+  spinner.classList.add('active');
+
+  // Dispara gravação no Sheets em paralelo com abertura do WhatsApp
+  var sheetsPromise = saveToSheets();
+
+  var msg = buildMessage();
+  var enc = encodeURIComponent(msg);
+  var num = (WA_GROUP || '').replace(/\D/g,'');
+  var waUrl = num ? 'https://wa.me/' + num + '?text=' + enc : 'https://wa.me/?text=' + enc;
+  window.open(waUrl, '_blank');
+
+  var sheetsOk = await sheetsPromise;
+
+  showToast(sheetsOk
+    ? '✅ Enviado no WhatsApp e gravado no Sheets!'
+    : '✅ WhatsApp aberto! (Sheets não configurado)'
+  );
+
+  btn.disabled = false;
+  label.textContent = 'ENVIAR DISPONIBILIDADE';
+  badge.style.display = '';
+  spinner.classList.remove('active');
+}
+
+// ═══════════════════════════════════════
+// GRAVAR NO GOOGLE SHEETS
+// Usa fetch com script tag JSONP como fallback
+// ═══════════════════════════════════════
+function buildPayload() {
+  var temP  = document.getElementById('temPendencia').checked;
+  var val   = document.getElementById('dataDisp').value;
+  var parts = val.split('-');
+  var carga = document.getElementById('carga').value;
+  return {
+    dataDisp:      parts[2] + '/' + parts[1] + '/' + parts[0],
+    nome:          document.getElementById('nome').value.toUpperCase(),
+    veiculo:       document.getElementById('veiculo').value,
+    placa:         document.getElementById('placa').value,
+    carga:         carga ? carga + 'KG' : '',
+    pallets:       document.getElementById('pallets').value,
+    rotas:         Array.from(selectedCities).join(', '),
+    pendencia:     temP ? 'SIM' : 'NAO',
+    cliente:       temP ? document.getElementById('clientePendencia').value.toUpperCase() : '',
+    qualPendencia: temP ? document.getElementById('qualPendencia').value : ''
+  };
+}
+
+function saveToSheets() {
+  if (!SHEETS_URL) return Promise.resolve(false);
+
+  var params = buildPayload();
+  var qs = Object.keys(params).map(function(k) {
+    return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+  }).join('&');
+  var url = SHEETS_URL + '?' + qs;
+
+  // Método 1: fetch sem headers (evita preflight CORS)
+  return fetch(url, { method: 'GET', mode: 'no-cors' })
+    .then(function() { return true; })
+    .catch(function() {
+      // Método 2: tag <script> JSONP como fallback
+      return new Promise(function(resolve) {
+        var s = document.createElement('script');
+        s.src = url + '&callback=_sheetsCallback';
+        s.onerror = function() { resolve(false); };
+        window._sheetsCallback = function() {
+          try { document.head.removeChild(s); } catch(e){}
+          delete window._sheetsCallback;
+          resolve(true);
+        };
+        setTimeout(function() { resolve(true); }, 8000);
+        document.head.appendChild(s);
+      });
+    });
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function showToast(msg, bg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = bg || 'var(--green)';
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3200);
+}
+</script>
+</body>
+</html>
