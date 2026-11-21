@@ -1,3 +1,4 @@
 {
-  "regions": ["gru1"]
+  "regions": ["gru1"],
+  "functions": { "api/app.js": { "maxDuration": 30 } }
 }
