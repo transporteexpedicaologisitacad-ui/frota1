@@ -157,7 +157,7 @@ function render(){
   return '<tr class="r" data-id="'+x.id+'"><td>'+dt(x.data)+'</td><td>'+esc(x.embarcador)+'</td><td>'+esc(x.destino)+'</td><td>'+esc(vtxt(x.veiculo_id))+'</td><td>'+(n.length?n.map(function(y){return 'NF '+esc(y.nf)+' – '+esc(y.cliente)}).join('<br>'):'<span class="mut">Sem notas lançadas</span>')+'</td></tr>'}).join(''):'<tr><td colspan="5" class="mut">Nenhuma carga pendente.</td></tr>';
  var qq=$('q').value.toLowerCase(),f=$('fs').value;
  var L=C.filter(function(x){
-  var t=[x.embarcador,x.destino,x.numero,x.lancado_por,vtxt(x.veiculo_id),mtxt(x.motorista_id)].concat(x.notas.map(function(n){return n.nf+' '+n.cliente})).join(' ').toLowerCase();
+  var t=[x.embarcador,x.destino,x.numero,x.lancado_por,x.condutor,vtxt(x.veiculo_id),mtxt(x.motorista_id)].concat(x.notas.map(function(n){return n.nf+' '+n.cliente})).join(' ').toLowerCase();
   if(qq&&t.indexOf(qq)<0)return false;
   if(f==='p'&&done(x))return false;if(f==='c'&&!done(x))return false;
   if(f==='f'&&x.pagFrete!=='Ag. Pagamento')return false;
@@ -165,7 +165,7 @@ function render(){
   return true});
  $('lista').innerHTML=L.length?L.map(function(x){
   return '<tr class="r" data-id="'+x.id+'"><td>'+dt(x.data)+'</td><td><b>'+esc(x.embarcador)+'</b><br><span class="mut">'+esc(x.destino)+(me.papel==='master'&&x.lancado_por?' · 👤 '+esc(x.lancado_por):'')+'</span></td>'+
-  '<td>'+esc(vtxt(x.veiculo_id))+(mtxt(x.motorista_id)?' · '+esc(mtxt(x.motorista_id)):'')+'<br><span class="mut">'+(x.numero?'Carga nº '+esc(x.numero):'')+'</span></td>'+
+  '<td>'+esc(vtxt(x.veiculo_id))+((x.condutor||mtxt(x.motorista_id))?' · '+esc(x.condutor||mtxt(x.motorista_id)):'')+'<br><span class="mut">'+(x.numero?'Carga nº '+esc(x.numero):'')+'</span></td>'+
   '<td>'+(x.notas.map(function(n){return 'NF '+esc(n.nf)+' · '+esc(n.cliente)+' · '+brl(n.valor)+' '+nsTag(n.status)}).join('<br>')||'<span class="mut">—</span>')+'<div class="mut">Total: '+brl(sum(x.notas,'valor'))+'</div></td>'+
   '<td>'+brl(x.frete)+'<br>'+tag(x.pagFrete,x.pagFrete==='Recebido'?'ok':'wa')+'</td>'+
   '<td>'+(x.despesas.map(function(d){return esc(d.tipo)+' '+brl(d.valor)+' '+tag('Reemb. '+d.reemb,d.reemb==='Recebido'?'ok':'wa')}).join('<br>')||'<span class="mut">—</span>')+'</td>'+
@@ -181,19 +181,14 @@ function selId(list,txt,cur){return '<option value="">—</option>'+list.map(fun
 function rowNF(n){n=n||{nf:'',cliente:'',valor:'',status:'Pendente'};return '<div class="row nf"><input placeholder="Nº NF" value="'+esc(n.nf)+'"><input list="dlc" placeholder="Cliente da NF" value="'+esc(n.cliente)+'"><input type="number" step="0.01" min="0" placeholder="Valor R$" value="'+esc(n.valor)+'"><select>'+opts(NS,n.status)+'</select><button class="d" type="button" data-del>✕</button></div>'}
 function rowDP(d){d=d||{tipo:'Descarga',valor:'',reemb:'Pendente'};return '<div class="row dr dp"><select>'+opts(['Descarga','Mercadoria'],d.tipo)+'</select><input type="number" step="0.01" min="0" placeholder="Valor R$" value="'+esc(d.valor)+'"><select>'+opts(['Pendente','Recebido'],d.reemb)+'</select><button class="d" type="button" data-del>✕</button></div>'}
 function abrir(id){
- editId=id;var x=S.cargas.find(function(c){return c.id===id})||{embarcador:'',data:new Date().toISOString().slice(0,10),destino:'',veiculo_id:null,motorista_id:null,numero:'',frete:'',pagFrete:'Ag. Pagamento',notas:[],despesas:[]};
+ editId=id;var x=S.cargas.find(function(c){return c.id===id})||{embarcador:'',data:new Date().toISOString().slice(0,10),destino:'',veiculo_id:null,motorista_id:null,condutor:(me.papel==='master'?'':me.usuario),numero:'',frete:'',pagFrete:'Ag. Pagamento',notas:[],despesas:[]};
  $('mc').innerHTML='<h2>'+(id?'Editar carga':'Nova carga')+'</h2><div class="f">'+
  '<div><label>Embarcador (nome do cliente)</label><select id="fc">'+selTxt(S.clientes.map(function(c){return c.fantasia||c.razao}),x.embarcador)+'</select></div>'+
  '<div><label>Data de carregamento</label><input id="fd" type="date" value="'+x.data+'"></div>'+
  '<div><label>Destino (região)</label><select id="fr">'+selTxt(S.regioes.map(function(r){return r.nome}),x.destino)+'</select></div>'+
  '<div><label>Nº da carga do cliente</label><input id="fx" value="'+esc(x.numero)+'"></div>'+
  '<div><label>Veículo (placa)</label><select id="fv">'+selId(S.veiculos,function(v){return v.perfil+' – '+v.placa},x.veiculo_id)+'</select></div>'+
- (me.papel==='master'?'<div><label>Motorista</label><select id="fm">'+selId(S.motoristas,function(m){return m.nome},x.motorista_id)+'</select></div>':'')+
- '<div><label>Frete R$</label><input id="ff" type="number" step="0.01" min="0" value="'+esc(x.frete)+'"></div>'+
- '<div><label>Status pagamento</label><select id="fp">'+opts(['Ag. Pagamento','Recebido'],x.pagFrete)+'</select></div></div>'+
- '<div class="sec"><h3>Notas fiscais desta carga</h3><button type="button" id="addnf">+ Adicionar NF</button></div><div id="nfs">'+x.notas.map(rowNF).join('')+'</div>'+
- '<div class="sec"><h3>Despesas adicionais e reembolso</h3><button type="button" id="adddp">+ Adicionar despesa</button></div><div id="dps">'+x.despesas.map(rowDP).join('')+'</div>'+
- '<div class="err" id="fe"></div><div class="act"><div>'+(id?'<button class="d" id="excl">Excluir carga</button>':'')+'</div><div><button id="canc">Cancelar</button> <button class="p" id="salv">Salvar</button></div></div>';
+ '<div><label>Condutor (motorista) *</label><input id="fo" value="'+esc(x.condutor)+'" placeholder="Nome de quem dirige"></div>'+'</div><div><button id="canc">Cancelar</button> <button class="p" id="salv">Salvar</button></div></div>';
  $('modal').classList.remove('hide');
  $('addnf').onclick=function(){$('nfs').insertAdjacentHTML('beforeend',rowNF())};
  $('adddp').onclick=function(){$('dps').insertAdjacentHTML('beforeend',rowDP())};
@@ -204,9 +199,10 @@ function abrir(id){
 function fechar(){$('modal').classList.add('hide');render()}
 function salvar(){
  var cli=$('fc').value.trim();if(!cli||!$('fd').value){$('fe').textContent='Escolha o embarcador e a data de carregamento.';return}
+ if(!$('fo').value.trim()){$('fe').textContent='Informe o condutor.';return}
  var notas=[].map.call(document.querySelectorAll('.row.nf'),function(r){var i=r.querySelectorAll('input,select');return{nf:i[0].value.trim(),cliente:i[1].value.trim(),valor:+i[2].value||0,status:i[3].value}}).filter(function(n){return n.nf||n.cliente||n.valor});
  var desp=[].map.call(document.querySelectorAll('.row.dp'),function(r){var i=r.querySelectorAll('input,select');return{tipo:i[0].value,valor:+i[1].value||0,reemb:i[2].value}}).filter(function(d){return d.valor});
- var o={id:editId,embarcador:cli,data:$('fd').value,destino:$('fr').value,numero:$('fx').value.trim(),veiculo_id:+$('fv').value||null,motorista_id:$('fm')?(+$('fm').value||null):null,frete:+$('ff').value||0,pagFrete:$('fp').value,notas:notas,despesas:desp};
+ var o={id:editId,embarcador:cli,data:$('fd').value,destino:$('fr').value,numero:$('fx').value.trim(),veiculo_id:+$('fv').value||null,motorista_id:null,condutor:$('fo').value.trim(),frete:+$('ff').value||0,pagFrete:$('fp').value,notas:notas,despesas:desp};
  $('salv').disabled=true;
  api('save_carga',{carga:o}).then(load).then(fechar).catch(function(e){$('salv').disabled=false;fail(e)});
 }
