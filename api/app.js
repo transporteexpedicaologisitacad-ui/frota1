@@ -20,18 +20,19 @@ async function who(req) {
   return r[0] || null;
 }
 
-async function dados(t, master) {
-  const [cargas, clientes, motoristas, veiculos] = await sql.transaction([
+async function dados(t, master, uid) {
+  const [cargas, clientes, motoristas, veiculos, regioes] = await sql.transaction([
     sql`SELECT c.id, c.embarcador, to_char(c.data_carregamento,'YYYY-MM-DD') AS data, c.destino, c.veiculo_id, c.motorista_id,
-      c.numero_carga AS numero, c.frete::float8 AS frete, c.status_pagamento AS "pagFrete",
+      c.numero_carga AS numero, c.frete::float8 AS frete, c.status_pagamento AS "pagFrete", (SELECT u.usuario FROM usuarios u WHERE u.id = c.usuario_id) AS lancado_por,
       COALESCE((SELECT json_agg(json_build_object('nf',n.numero,'cliente',n.cliente,'valor',n.valor::float8,'status',n.status) ORDER BY n.id) FROM notas_fiscais n WHERE n.carga_id = c.id), '[]'::json) AS notas,
       COALESCE((SELECT json_agg(json_build_object('tipo',d.tipo,'valor',d.valor::float8,'reemb',d.reembolso) ORDER BY d.id) FROM despesas d WHERE d.carga_id = c.id), '[]'::json) AS despesas
-      FROM cargas c WHERE c.transportadora_id = ${t} ORDER BY c.data_carregamento DESC, c.id DESC`,
-    sql`SELECT id, razao_social AS razao, nome_fantasia AS fantasia, cnpj, endereco, contato FROM clientes WHERE transportadora_id = ${t} ORDER BY id`,
-    sql`SELECT id, nome, cnh, categoria AS cat FROM motoristas WHERE transportadora_id = ${t} ORDER BY id`,
+      FROM cargas c WHERE c.transportadora_id = ${t} AND (${master}::boolean OR c.usuario_id = ${uid}) ORDER BY c.data_carregamento DESC, c.id DESC`,
+    sql`SELECT id, razao_social AS razao, nome_fantasia AS fantasia, CASE WHEN ${master}::boolean THEN cnpj END AS cnpj, CASE WHEN ${master}::boolean THEN endereco END AS endereco, CASE WHEN ${master}::boolean THEN contato END AS contato FROM clientes WHERE transportadora_id = ${t} ORDER BY id`,
+    sql`SELECT id, nome, cnh, categoria AS cat FROM motoristas WHERE transportadora_id = ${t} AND ${master}::boolean ORDER BY id`,
     sql`SELECT id, perfil, placa FROM veiculos WHERE transportadora_id = ${t} ORDER BY id`,
+    sql`SELECT id, nome FROM regioes WHERE transportadora_id = ${t} ORDER BY nome`,
   ]);
-  const out = { cargas, clientes, motoristas, veiculos, usuarios: [] };
+  const out = { cargas, clientes, motoristas, veiculos, regioes, usuarios: [] };
   if (master) out.usuarios = await sql`SELECT id, usuario, CASE WHEN ativo THEN 'Sim' ELSE 'Não' END AS ativo FROM usuarios WHERE transportadora_id = ${t} AND papel = 'usuario' ORDER BY id`;
   return out;
 }
@@ -57,12 +58,12 @@ export default async function handler(req, res) {
 
     switch (b.op) {
       case 'load':
-        return res.status(200).json({ eu: { usuario: me.usuario, papel: me.papel, transp: me.transp, padrao: me.padrao }, dados: await dados(t, master) });
+        return res.status(200).json({ eu: { usuario: me.usuario, papel: me.papel, transp: me.transp, padrao: me.padrao }, dados: await dados(t, master, me.id) });
 
       case 'save_carga': {
         const c = b.carga || {};
         if (!String(c.embarcador || '').trim() || !c.data) return bad(res, 'Informe o embarcador e a data.');
-        const vid = +c.veiculo_id || null, mid = +c.motorista_id || null;
+        const vid = +c.veiculo_id || null, mid = master ? (+c.motorista_id || null) : null;
         const ch = await sql`SELECT (SELECT count(*) FROM veiculos WHERE id = ${vid} AND transportadora_id = ${t})::int AS v,
           (SELECT count(*) FROM motoristas WHERE id = ${mid} AND transportadora_id = ${t})::int AS m`;
         const V = ch[0].v ? vid : null, M = ch[0].m ? mid : null;
@@ -70,13 +71,13 @@ export default async function handler(req, res) {
         const dp = JSON.stringify((c.despesas || []).map(d => ({ tipo: d.tipo, valor: +d.valor || 0, reembolso: d.reemb })));
         let id = +c.id || 0;
         if (id) {
-          const o = await sql`SELECT 1 FROM cargas WHERE id = ${id} AND transportadora_id = ${t}`;
+          const o = await sql`SELECT 1 FROM cargas WHERE id = ${id} AND transportadora_id = ${t} AND (${master}::boolean OR usuario_id = ${me.id})`;
           if (!o[0]) return bad(res, 'Carga não encontrada.', 404);
-          await sql`UPDATE cargas SET embarcador = ${c.embarcador}, data_carregamento = ${c.data}, destino = ${c.destino || ''}, veiculo_id = ${V}, motorista_id = ${M},
+          await sql`UPDATE cargas SET embarcador = ${c.embarcador}, data_carregamento = ${c.data}, destino = ${c.destino || ''}, veiculo_id = ${V}, motorista_id = CASE WHEN ${master}::boolean THEN ${M} ELSE motorista_id END,
             numero_carga = ${c.numero || ''}, frete = ${+c.frete || 0}, status_pagamento = ${c.pagFrete} WHERE id = ${id}`;
         } else {
-          const r = await sql`INSERT INTO cargas (transportadora_id, embarcador, data_carregamento, destino, veiculo_id, motorista_id, numero_carga, frete, status_pagamento)
-            VALUES (${t}, ${c.embarcador}, ${c.data}, ${c.destino || ''}, ${V}, ${M}, ${c.numero || ''}, ${+c.frete || 0}, ${c.pagFrete}) RETURNING id`;
+          const r = await sql`INSERT INTO cargas (transportadora_id, usuario_id, embarcador, data_carregamento, destino, veiculo_id, motorista_id, numero_carga, frete, status_pagamento)
+            VALUES (${t}, ${me.id}, ${c.embarcador}, ${c.data}, ${c.destino || ''}, ${V}, ${M}, ${c.numero || ''}, ${+c.frete || 0}, ${c.pagFrete}) RETURNING id`;
           id = r[0].id;
         }
         await sql.transaction([
@@ -91,7 +92,7 @@ export default async function handler(req, res) {
       }
 
       case 'del_carga':
-        await sql`DELETE FROM cargas WHERE id = ${+b.id} AND transportadora_id = ${t}`;
+        await sql`DELETE FROM cargas WHERE id = ${+b.id} AND transportadora_id = ${t} AND (${master}::boolean OR usuario_id = ${me.id})`;
         return ok();
 
       // ----- A partir daqui, somente o Master -----
@@ -109,6 +110,10 @@ export default async function handler(req, res) {
           if (!s(r.placa)) return bad(res, 'Informe a placa.');
           if (id) await sql`UPDATE veiculos SET perfil=${s(r.perfil)}, placa=${s(r.placa).toUpperCase()} WHERE id=${id} AND transportadora_id=${t}`;
           else await sql`INSERT INTO veiculos (transportadora_id, perfil, placa) VALUES (${t}, ${s(r.perfil)}, ${s(r.placa).toUpperCase()})`;
+        } else if (b.tab === 'regioes') {
+          if (!s(r.nome)) return bad(res, 'Informe o nome da região.');
+          if (id) await sql`UPDATE regioes SET nome=${s(r.nome)} WHERE id=${id} AND transportadora_id=${t}`;
+          else await sql`INSERT INTO regioes (transportadora_id, nome) VALUES (${t}, ${s(r.nome)})`;
         } else if (b.tab === 'usuarios') {
           const nome = s(r.usuario), senha = String(r.senha || ''), ativo = r.ativo !== 'Não';
           if (!nome) return bad(res, 'Informe o nome de usuário.');
@@ -130,9 +135,25 @@ export default async function handler(req, res) {
         if (b.tab === 'clientes') await sql`DELETE FROM clientes WHERE id=${id} AND transportadora_id=${t}`;
         else if (b.tab === 'motoristas') await sql`DELETE FROM motoristas WHERE id=${id} AND transportadora_id=${t}`;
         else if (b.tab === 'veiculos') await sql`DELETE FROM veiculos WHERE id=${id} AND transportadora_id=${t}`;
+        else if (b.tab === 'regioes') await sql`DELETE FROM regioes WHERE id=${id} AND transportadora_id=${t}`;
         else if (b.tab === 'usuarios') await sql`DELETE FROM usuarios WHERE id=${id} AND transportadora_id=${t} AND papel='usuario'`;
         else return bad(res, 'Aba inválida.');
         return ok();
+      }
+
+      case 'bulk_users': {
+        if (!master) return bad(res, 'Acesso restrito ao Master.', 403);
+        const linhas = String(b.texto || '').split('\n').map(l => l.trim()).filter(Boolean).slice(0, 100);
+        let criados = 0, repetidos = 0, invalidos = 0;
+        for (const l of linhas) {
+          const [u, s] = l.split(/[;\t]/).map(x => (x || '').trim());
+          if (!u || !s || s.length < 6) { invalidos++; continue; }
+          try {
+            await sql`INSERT INTO usuarios (usuario, senha_hash, papel, transportadora_id, ativo) VALUES (${u}, crypt(${s}, gen_salt('bf')), 'usuario', ${t}, true)`;
+            criados++;
+          } catch (e) { if (e.code === '23505') repetidos++; else throw e; }
+        }
+        return res.status(200).json({ criados, repetidos, invalidos });
       }
 
       case 'pass': {
