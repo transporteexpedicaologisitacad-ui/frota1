@@ -23,7 +23,7 @@ async function who(req) {
 async function dados(t, master, uid) {
   const [cargas, clientes, motoristas, veiculos, regioes] = await sql.transaction([
     sql`SELECT c.id, c.embarcador, to_char(c.data_carregamento,'YYYY-MM-DD') AS data, c.destino, c.veiculo_id, c.motorista_id,
-      c.numero_carga AS numero, c.frete::float8 AS frete, c.status_pagamento AS "pagFrete", (SELECT u.usuario FROM usuarios u WHERE u.id = c.usuario_id) AS lancado_por,
+      c.condutor, c.numero_carga AS numero, c.frete::float8 AS frete, c.status_pagamento AS "pagFrete", (SELECT u.usuario FROM usuarios u WHERE u.id = c.usuario_id) AS lancado_por,
       COALESCE((SELECT json_agg(json_build_object('nf',n.numero,'cliente',n.cliente,'valor',n.valor::float8,'status',n.status) ORDER BY n.id) FROM notas_fiscais n WHERE n.carga_id = c.id), '[]'::json) AS notas,
       COALESCE((SELECT json_agg(json_build_object('tipo',d.tipo,'valor',d.valor::float8,'reemb',d.reembolso) ORDER BY d.id) FROM despesas d WHERE d.carga_id = c.id), '[]'::json) AS despesas
       FROM cargas c WHERE c.transportadora_id = ${t} AND (${master}::boolean OR c.usuario_id = ${uid}) ORDER BY c.data_carregamento DESC, c.id DESC`,
@@ -63,6 +63,8 @@ export default async function handler(req, res) {
       case 'save_carga': {
         const c = b.carga || {};
         if (!String(c.embarcador || '').trim() || !c.data) return bad(res, 'Informe o embarcador e a data.');
+        const cond = String(c.condutor || '').trim().slice(0, 120);
+        if (!cond) return bad(res, 'Informe o condutor.');
         const vid = +c.veiculo_id || null, mid = master ? (+c.motorista_id || null) : null;
         const ch = await sql`SELECT (SELECT count(*) FROM veiculos WHERE id = ${vid} AND transportadora_id = ${t})::int AS v,
           (SELECT count(*) FROM motoristas WHERE id = ${mid} AND transportadora_id = ${t})::int AS m`;
@@ -74,10 +76,10 @@ export default async function handler(req, res) {
           const o = await sql`SELECT 1 FROM cargas WHERE id = ${id} AND transportadora_id = ${t} AND (${master}::boolean OR usuario_id = ${me.id})`;
           if (!o[0]) return bad(res, 'Carga não encontrada.', 404);
           await sql`UPDATE cargas SET embarcador = ${c.embarcador}, data_carregamento = ${c.data}, destino = ${c.destino || ''}, veiculo_id = ${V}, motorista_id = CASE WHEN ${master}::boolean THEN ${M} ELSE motorista_id END,
-            numero_carga = ${c.numero || ''}, frete = ${+c.frete || 0}, status_pagamento = ${c.pagFrete} WHERE id = ${id}`;
+            numero_carga = ${c.numero || ''}, condutor = ${cond}, frete = ${+c.frete || 0}, status_pagamento = ${c.pagFrete} WHERE id = ${id}`;
         } else {
-          const r = await sql`INSERT INTO cargas (transportadora_id, usuario_id, embarcador, data_carregamento, destino, veiculo_id, motorista_id, numero_carga, frete, status_pagamento)
-            VALUES (${t}, ${me.id}, ${c.embarcador}, ${c.data}, ${c.destino || ''}, ${V}, ${M}, ${c.numero || ''}, ${+c.frete || 0}, ${c.pagFrete}) RETURNING id`;
+          const r = await sql`INSERT INTO cargas (transportadora_id, usuario_id, embarcador, data_carregamento, destino, veiculo_id, motorista_id, numero_carga, condutor, frete, status_pagamento)
+            VALUES (${t}, ${me.id}, ${c.embarcador}, ${c.data}, ${c.destino || ''}, ${V}, ${M}, ${c.numero || ''}, ${cond}, ${+c.frete || 0}, ${c.pagFrete}) RETURNING id`;
           id = r[0].id;
         }
         await sql.transaction([
@@ -139,6 +141,11 @@ export default async function handler(req, res) {
         else if (b.tab === 'usuarios') await sql`DELETE FROM usuarios WHERE id=${id} AND transportadora_id=${t} AND papel='usuario'`;
         else return bad(res, 'Aba inválida.');
         return ok();
+      }
+
+      case 'backup': {
+        if (!master) return bad(res, 'Acesso restrito ao Master.', 403);
+        return res.status(200).json({ gerado_em: new Date().toISOString(), transportadora: me.transp, dados: await dados(t, true, me.id) });
       }
 
       case 'bulk_users': {
