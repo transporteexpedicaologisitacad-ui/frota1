@@ -87,7 +87,7 @@ tr.r{cursor:pointer}tr.r:hover{background:#FFF7F3}
 .tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .t-ok{background:var(--okb);color:var(--ok)}.t-wa{background:var(--wab);color:var(--wa)}.t-er{background:var(--erb);color:var(--er)}
 .mut{color:var(--mut);font-size:13px}
-#alerta{border-color:#F6C3AE;background:var(--wab);margin-bottom:16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#alerta,#alertabk{border-color:#F6C3AE;background:var(--wab);margin-bottom:16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 #modal{position:fixed;inset:0;background:rgba(20,20,26,.55);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:20px;z-index:40}
 .m{position:relative;background:var(--panel);border-radius:16px;width:100%;max-width:840px;padding:24px 22px 0;margin:auto 0}
 .m::before{content:"";position:absolute;left:22px;top:0;width:56px;height:3px;background:var(--pri);border-radius:0 0 3px 3px}
@@ -96,6 +96,7 @@ tr.r{cursor:pointer}tr.r:hover{background:#FFF7F3}
 .row{display:grid;grid-template-columns:1fr 1.5fr 1fr 1.2fr auto;gap:8px;margin-bottom:8px;align-items:center}
 .row.dr{grid-template-columns:1.2fr 1fr 1.2fr auto}
 .sec{display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px;padding-top:16px;border-top:1px solid var(--line)}.sec h3{margin:0;font-size:16px;font-weight:600}
+.bk{display:flex;gap:10px;flex-wrap:wrap}@media(max-width:700px){.bk button{flex:1 1 100%}}
 .act{position:sticky;bottom:0;z-index:2;display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;background:var(--panel);padding:12px 0 calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);margin-top:22px}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.gauge{grid-column:span 2}}
 @media(max-width:700px){
@@ -150,13 +151,14 @@ tr.r{cursor:pointer}tr.r:hover{background:#FFF7F3}
  <header>
   <div class="logo"><svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#F0552B"/><path d="M9 10l7 6-7 6M16 10l7 6-7 6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Controle</span></div>
   <div id="pt">Painel</div>
-  <nav><button data-v="painel" class="on">Painel</button><button data-v="cargas">Cargas</button><button data-v="cadastros" id="navcad" class="hide">Cadastros</button></nav>
+  <nav><button data-v="painel" class="on">Painel</button><button data-v="cargas">Cargas</button><button data-v="cadastros" id="navcad" class="hide">Cadastros</button><button data-v="backup" id="navbk" class="hide">Backup</button></nav>
   <span id="st" class="mut"></span><button id="trocar" title="Trocar senha">Senha</button><button id="sair">Sair</button>
  </header>
  <main>
   <div id="alerta" class="card hide"><span>⚠️ Você está usando a senha padrão. Troque agora para proteger os dados.</span><button class="p" id="trocar2">Trocar senha</button></div>
   <div class="stamp" id="stamp"></div>
   <section id="painel">
+   <div id="alertabk" class="card hide"><span>⚠️ <b id="bkmsg"></b></span><button class="p" id="bkir">Fazer backup agora</button></div>
    <button class="p big" id="nova2">+ Lançar nova carga</button>
    <div class="grid" id="cards"></div>
    <h2>Cargas pendentes de entrega</h2>
@@ -171,6 +173,21 @@ tr.r{cursor:pointer}tr.r:hover{background:#FFF7F3}
    <div class="cards" id="lista"></div>
   </section>
   <section id="cadastros" class="hide"><div id="cad"></div></section>
+  <section id="backup" class="hide">
+   <h2>Backup dos dados</h2>
+   <div class="card">
+    <p style="margin-top:0">Baixe cópias de segurança em arquivos <b>CSV</b> (planilhas), que abrem no Excel e no Google Planilhas. As senhas dos acessos <b>não</b> são incluídas. Guarde os arquivos num lugar seguro, como o computador, o Google Drive ou um pen drive.</p>
+    <div id="bkinfo" class="mut" style="margin-bottom:12px"></div>
+    <div class="bk"><button class="p" id="bkall">Baixar tudo (CSV)</button></div>
+    <div class="mut" style="margin:14px 0 8px">Ou baixe um arquivo por vez:</div>
+    <div class="bk"><button id="bkcsv">Cargas e notas</button><button id="bkcli">Clientes</button><button id="bkmot">Motoristas</button><button id="bkvei">Veículos</button><button id="bkreg">Regiões</button><button id="bkusr">Acessos</button></div>
+    <div class="err" id="bke"></div>
+   </div>
+   <div class="card" style="margin-top:12px"><h3 style="margin:0 0 6px;font-size:16px">O que vem em cada arquivo</h3>
+    <p class="mut" style="margin:0 0 6px"><b>Cargas e notas:</b> uma linha por nota fiscal, com embarcador, destino, condutor, veículo, frete, despesas e reembolsos.</p>
+    <p class="mut" style="margin:0"><b>Clientes, motoristas, veículos, regiões e acessos:</b> as listas cadastradas. O botão <b>Baixar tudo</b> gera os seis arquivos de uma vez. Se o navegador pedir permissão para vários downloads, aceite.</p>
+   </div>
+  </section>
   <datalist id="dlc"></datalist>
  </main>
 </div>
@@ -202,7 +219,7 @@ function load(){
 }
 function head(){
  $('st').textContent=me.usuario+' · '+me.transp+(me.papel==='master'?' (Master)':' (Motorista)');
- $('navcad').classList.toggle('hide',me.papel!=='master');
+ $('navcad').classList.toggle('hide',me.papel!=='master');$('navbk').classList.toggle('hide',me.papel!=='master');bkAviso();
  $('alerta').classList.toggle('hide',!me.padrao);
  $('dlc').innerHTML=S.clientes.map(function(x){return '<option value="'+esc(x.fantasia||x.razao)+'">'}).join('');
 }
@@ -227,7 +244,7 @@ try{tok=sessionStorage.getItem('tk');if(tok)start()}catch(e){}
 // ---- Navegação ----
 document.querySelectorAll('nav button').forEach(function(b){b.onclick=function(){
  document.querySelectorAll('nav button').forEach(function(x){x.classList.toggle('on',x===b)});
- ['painel','cargas','cadastros'].forEach(function(s){$(s).classList.toggle('hide',b.dataset.v!==s)});$('pt').textContent=b.textContent;render()}});
+ ['painel','cargas','cadastros','backup'].forEach(function(s){$(s).classList.toggle('hide',b.dataset.v!==s)});$('pt').textContent=b.textContent;render()}});
 
 // ---- Painel e lista ----
 function rotular(){document.querySelectorAll("table.stack").forEach(function(t){var hd=[].map.call(t.querySelectorAll("th"),function(x){return x.textContent});t.querySelectorAll("tbody tr").forEach(function(tr){[].forEach.call(tr.children,function(td,i){if(hd[i])td.setAttribute("data-l",hd[i])})})})}
@@ -348,6 +365,56 @@ $('cad').onclick=function(e){var t=e.target,b;
   api('save_cad',{tab:cadTab,rec:o}).then(load).then(function(){cadEd=null;renderCad()}).catch(function(e){$('ce').textContent=typeof e==='string'?e:'Não foi possível salvar.'});return}
  if(b=t.closest('tr.r')){cadEd=+b.dataset.i;renderCad();window.scrollTo(0,0)}
 };
+
+// ---- Backup (somente Master) ----
+function bkQuando(){try{return +localStorage.getItem('bk_ultimo')||0}catch(e){return 0}}
+function bkAviso(){
+ var box=$('alertabk');if(!box)return;
+ if(!me||me.papel!=='master'){box.classList.add('hide');return}
+ var t=bkQuando(),dias=t?Math.floor((Date.now()-t)/864e5):null;
+ $('bkinfo').textContent=t?'Último backup baixado neste aparelho: '+new Date(t).toLocaleString('pt-BR')+'.':'Nenhum backup baixado neste aparelho ainda.';
+ if(!t||dias>=7){$('bkmsg').textContent=t?'Seu último backup foi há '+dias+' dias.':'Você ainda não fez nenhum backup.';box.classList.remove('hide')}else box.classList.add('hide');
+}
+function baixar(nome,tipo,conteudo){
+ var blob=new Blob([conteudo],{type:tipo}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=nome;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(url)},2000);
+}
+function hoje(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function csvCel(v){v=v==null?'':String(v);return /[;"\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function csvNum(v){return String(+v||0).replace('.',',')}
+function csvCargas(dados){
+ var vt={},cols=['Data','Embarcador','Destino','Nº da carga','Condutor','Veículo','Lançado por','Frete (R$)','Status do pagamento','NF','Cliente da NF','Valor da NF (R$)','Status da NF','Despesas','Reembolsos pendentes (R$)'];
+ (dados.veiculos||[]).forEach(function(v){vt[v.id]=v.perfil+' – '+v.placa});
+ var linhas=[cols.map(csvCel).join(';')];
+ (dados.cargas||[]).forEach(function(c){
+  var dp=(c.despesas||[]).map(function(d){return d.tipo+' R$ '+csvNum(d.valor)+' ('+d.reemb+')'}).join(' + ');
+  var rp=(c.despesas||[]).reduce(function(t,d){return t+(d.reemb==='Pendente'?+d.valor||0:0)},0);
+  var base=[dt(c.data),c.embarcador,c.destino,c.numero,c.condutor,vt[c.veiculo_id]||'',c.lancado_por||'',csvNum(c.frete),c.pagFrete];
+  var fim=[dp,csvNum(rp)],ns=c.notas&&c.notas.length?c.notas:[null];
+  ns.forEach(function(n,i){var b=i?base.slice(0,7).concat(['',c.pagFrete]):base,f=i?['','']:fim;linhas.push(b.concat(n?[n.nf,n.cliente,csvNum(n.valor),n.status]:['','','','']).concat(f).map(csvCel).join(';'))});
+ });
+ return '\ufeff'+linhas.join('\r\n');
+}
+function pedirBackup(fn){
+ $('bke').textContent='';
+ api('backup').then(function(r){fn(r);try{localStorage.setItem('bk_ultimo',String(Date.now()))}catch(e){}bkAviso()}).catch(function(e){if(e!==0)$('bke').textContent=typeof e==='string'?e:'Não foi possível gerar o backup. Tente novamente.'});
+}
+function csvTab(cols,rows){return '\ufeff'+[cols].concat(rows).map(function(l){return l.map(csvCel).join(';')}).join('\r\n')}
+var BKB={bkcsv:'cargas',bkcli:'clientes',bkmot:'motoristas',bkvei:'veiculos',bkreg:'regioes',bkusr:'acessos'};
+function bkArquivos(d){
+ var t=hoje();
+ return {
+  cargas:['cargas-'+t+'.csv',csvCargas(d)],
+  clientes:['clientes-'+t+'.csv',csvTab(['Razão Social','Nome Fantasia','CNPJ','Endereço','Contato'],(d.clientes||[]).map(function(c){return [c.razao,c.fantasia,c.cnpj,c.endereco,c.contato]}))],
+  motoristas:['motoristas-'+t+'.csv',csvTab(['Nome','CNH','Categoria'],(d.motoristas||[]).map(function(m){return [m.nome,m.cnh,m.cat]}))],
+  veiculos:['veiculos-'+t+'.csv',csvTab(['Perfil','Placa'],(d.veiculos||[]).map(function(v){return [v.perfil,v.placa]}))],
+  regioes:['regioes-'+t+'.csv',csvTab(['Região'],(d.regioes||[]).map(function(r){return [r.nome]}))],
+  acessos:['acessos-'+t+'.csv',csvTab(['Usuário','Acesso ativo'],(d.usuarios||[]).map(function(u){return [u.usuario,u.ativo]}))]
+ };
+}
+Object.keys(BKB).forEach(function(id){$(id).onclick=function(){pedirBackup(function(r){var f=bkArquivos(r.dados)[BKB[id]];baixar(f[0],'text/csv;charset=utf-8',f[1])})}});
+$('bkall').onclick=function(){pedirBackup(function(r){var f=bkArquivos(r.dados);Object.keys(f).forEach(function(k,i){setTimeout(function(){baixar(f[k][0],'text/csv;charset=utf-8',f[k][1])},i*500)})})};
+$('bkir').onclick=function(){document.querySelector('[data-v=backup]').click()};
 </script>
 </body>
 </html>
